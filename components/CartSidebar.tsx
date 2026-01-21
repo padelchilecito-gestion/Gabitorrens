@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { X, Trash2, ShoppingBag, Truck, Check, ArrowRight, CreditCard, Wallet, Banknote, ShieldCheck, Copy, CheckCircle2 } from 'lucide-react';
+import { X, Trash2, ShoppingBag, Check, ArrowRight, CreditCard, Wallet, Banknote, ShieldCheck, Copy, CheckCircle2, MapPin, Phone, FileText } from 'lucide-react';
 import { CartItem, Brand, ContactInfo, User, PaymentConfig } from '../types';
 
 interface CartSidebarProps {
@@ -38,6 +37,11 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [copiedAlias, setCopiedAlias] = useState(false);
 
+  // Estados locales para datos de envío
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [orderNotes, setOrderNotes] = useState('');
+
   const isSports = activeBrand === 'informa';
   const isIqual = activeBrand === 'iqual';
   const isBio = activeBrand === 'biofarma';
@@ -63,15 +67,6 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   const payNowAmount = paymentType === 'full' ? total : total * 0.5;
   const payLaterAmount = total - payNowAmount;
 
-  // Calcular fecha de entrega (3 días desde hoy)
-  const deliveryDate = new Date();
-  deliveryDate.setDate(deliveryDate.getDate() + 3);
-  const formattedDate = deliveryDate.toLocaleDateString('es-ES', { 
-    weekday: 'long', 
-    day: 'numeric', 
-    month: 'long' 
-  });
-
   const handleInitialCheckoutClick = () => {
       if (currentUser) {
           setCheckoutStep('payment');
@@ -96,16 +91,26 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   };
 
   const handleFinalWhatsApp = () => {
-    // 1. Limpiar el número de teléfono
-    const cleanPhone = contactInfo.phone.replace(/[^\d]/g, '');
+    // 1. Validaciones
+    const cleanStorePhone = contactInfo.phone.replace(/[^\d]/g, '');
 
-    if (!cleanPhone) {
-        alert("El número de contacto no está configurado correctamente.");
+    if (!cleanStorePhone) {
+        alert("El número de la tienda no está configurado correctamente.");
         return;
     }
 
     if (!paymentMethod) {
         alert("Por favor selecciona un método de pago.");
+        return;
+    }
+
+    if (!customerAddress.trim()) {
+        alert("Por favor ingresa la dirección de entrega.");
+        return;
+    }
+
+    if (!customerPhone.trim()) {
+        alert("Por favor ingresa un teléfono de contacto.");
         return;
     }
 
@@ -124,6 +129,14 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
     message += `\n----------------------------------\n`;
     message += `*TOTAL COMPRA: $${total.toLocaleString()}*\n`;
     message += `----------------------------------\n\n`;
+
+    message += `*DATOS DE ENTREGA:*\n`;
+    message += `📍 Dirección: ${customerAddress}\n`;
+    message += `📞 Teléfono: ${customerPhone}\n`;
+    if (orderNotes.trim()) {
+        message += `📝 Notas: ${orderNotes}\n`;
+    }
+    message += `\n`;
 
     message += `*CONFIGURACIÓN DE PAGO:*\n`;
     message += `📝 Esquema: *${paymentType === 'full' ? 'PAGO COMPLETO (100%)' : 'SEÑA (50%) PARA ENCARGAR'}*\n`;
@@ -147,13 +160,9 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
         message += `Saldo pendiente contra entrega: $${payLaterAmount.toLocaleString()}\n`;
     }
 
-    message += `\n📍 *Datos de Entrega:*\n`;
-    message += `Dirección registrada en cuenta: ${currentUser?.email}\n`; // Usando email como referencia simple
-    message += `(Confirmar dirección exacta en el chat)`;
-
     // 3. Codificar y Enviar
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+    const whatsappUrl = `https://wa.me/${cleanStorePhone}?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
   };
 
@@ -298,7 +307,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
             </>
         )}
 
-        {/* ... (Step 2: Login Overlay remains mostly the same, using isDark/isBio logic implicitly) ... */}
+        {/* --- STEP 2: LOGIN OVERLAY --- */}
         {checkoutStep === 'login' && (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
                  <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${
@@ -338,7 +347,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
             </div>
         )}
 
-        {/* ... (Step 3: Payment uses accent colors already defined) ... */}
+        {/* --- STEP 3: PAYMENT & DELIVERY --- */}
         {checkoutStep === 'payment' && (
             <div className="flex-1 flex flex-col h-full animate-fade-in overflow-y-auto">
                  <div className="p-6 space-y-8">
@@ -352,9 +361,55 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                          </div>
                      </div>
 
+                     {/* Delivery Data (NUEVO SECTOR) */}
+                     <div>
+                        <h3 className={`font-bold mb-3 ${textMain}`}>1. Datos de Entrega</h3>
+                        <div className="space-y-3">
+                            <div>
+                                <label className={`block text-xs font-bold mb-1 ml-1 ${textMuted}`}>Dirección Completa</label>
+                                <div className={`flex items-center px-3 py-2 rounded-lg border ${isDark ? 'bg-black/40 border-white/10' : 'bg-white border-gray-200'}`}>
+                                    <MapPin className={`w-4 h-4 mr-2 ${textMuted}`} />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Ej: Av. San Martín 123, Piso 2A"
+                                        value={customerAddress}
+                                        onChange={(e) => setCustomerAddress(e.target.value)}
+                                        className={`flex-1 bg-transparent outline-none text-sm ${textMain}`}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className={`block text-xs font-bold mb-1 ml-1 ${textMuted}`}>Teléfono de Contacto</label>
+                                <div className={`flex items-center px-3 py-2 rounded-lg border ${isDark ? 'bg-black/40 border-white/10' : 'bg-white border-gray-200'}`}>
+                                    <Phone className={`w-4 h-4 mr-2 ${textMuted}`} />
+                                    <input 
+                                        type="tel" 
+                                        placeholder="Ej: 11 1234 5678"
+                                        value={customerPhone}
+                                        onChange={(e) => setCustomerPhone(e.target.value)}
+                                        className={`flex-1 bg-transparent outline-none text-sm ${textMain}`}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className={`block text-xs font-bold mb-1 ml-1 ${textMuted}`}>Notas (Opcional)</label>
+                                <div className={`flex items-start px-3 py-2 rounded-lg border ${isDark ? 'bg-black/40 border-white/10' : 'bg-white border-gray-200'}`}>
+                                    <FileText className={`w-4 h-4 mr-2 mt-0.5 ${textMuted}`} />
+                                    <textarea 
+                                        rows={2}
+                                        placeholder="Ej: El timbre no funciona, dejar en portería."
+                                        value={orderNotes}
+                                        onChange={(e) => setOrderNotes(e.target.value)}
+                                        className={`flex-1 bg-transparent outline-none text-sm ${textMain} resize-none`}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                     </div>
+
                      {/* Payment Percentage */}
                      <div>
-                         <h3 className={`font-bold mb-3 ${textMain}`}>1. ¿Cómo quieres pagar?</h3>
+                         <h3 className={`font-bold mb-3 ${textMain}`}>2. Modalidad de Pago</h3>
                          <div className="grid grid-cols-2 gap-3">
                              <button 
                                 onClick={() => setPaymentType('full')}
@@ -371,7 +426,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                                  )}
                                  <span className={`block text-xs font-bold uppercase mb-1 ${textMuted}`}>Recomendado</span>
                                  <span className={`block font-bold text-lg mb-1 ${textMain}`}>100%</span>
-                                 <span className={`text-xs ${textMuted}`}>Pago completo ahora</span>
+                                 <span className={`text-xs ${textMuted}`}>Pago completo</span>
                              </button>
 
                              <button 
@@ -396,7 +451,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
 
                      {/* Payment Method */}
                      <div>
-                        <h3 className={`font-bold mb-3 ${textMain}`}>2. Método de Pago</h3>
+                        <h3 className={`font-bold mb-3 ${textMain}`}>3. Medio de Pago</h3>
                         <div className="space-y-2">
                             {paymentConfig.transfer.enabled && (
                                 <div className="space-y-2">
@@ -502,7 +557,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                  }`}>
                      <button 
                         onClick={handleFinalWhatsApp}
-                        disabled={!paymentMethod}
+                        disabled={!paymentMethod || !customerAddress.trim() || !customerPhone.trim()}
                         className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 text-lg shadow-xl hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed ${accentBg} ${accentTextBtn}`}
                      >
                          {paymentMethod === 'transfer' 
