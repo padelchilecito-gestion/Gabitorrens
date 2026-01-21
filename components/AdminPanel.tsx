@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Product, ContactInfo, Banner, Reseller, Client, SiteContent, PaymentConfig, SocialReview } from '../types';
 import { 
   X, Settings, Package, LayoutDashboard, 
-  Tag, Users, UserCircle, Bell, BarChart3
+  Tag, Users, UserCircle, Bell, BarChart3, 
+  Truck
 } from 'lucide-react';
 
 // Importamos los componentes modulares
@@ -13,6 +14,7 @@ import ClientsTab from './admin/ClientsTab';
 import MessagesTab from './admin/MessagesTab';
 import AnalyticsTab from './admin/AnalyticsTab';
 import SettingsTab from './admin/SettingsTab';
+import OrdersTab from './admin/OrdersTab'; // <--- NUEVO COMPONENTE
 
 interface AdminPanelProps {
   products: Product[];
@@ -53,7 +55,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   siteContent,
   setSiteContent
 }) => {
-  const [activeTab, setActiveTab] = useState<'inventory' | 'settings' | 'promotions' | 'resellers' | 'clients' | 'messages' | 'analytics'>('settings');
+  // Agregamos 'orders' a los estados posibles del tab
+  const [activeTab, setActiveTab] = useState<'inventory' | 'settings' | 'promotions' | 'resellers' | 'clients' | 'messages' | 'analytics' | 'orders'>('orders');
 
   // Safety Check
   if (!products || !contactInfo || !siteContent) {
@@ -68,7 +71,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       );
   }
 
+  // Cálculos para notificaciones
   const totalUnreadMessages = resellers.reduce((acc, r) => acc + r.messages.filter(m => m.sender === 'reseller' && !m.read).length, 0);
+  
+  // Calcular pedidos pendientes para la notificación
+  const pendingOrdersCount = resellers.reduce((acc, r) => acc + r.orders.filter(o => o.status === 'Pendiente').length, 0);
 
   return (
     <div className="min-h-screen relative bg-[#0a0a0a] font-sans text-gray-200 selection:bg-[#ccff00] selection:text-black overflow-hidden">
@@ -92,9 +99,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <nav className="flex-1 p-4 space-y-2">
           {[
             { id: 'inventory', icon: Package, label: 'Inventario' },
+            // Nueva Pestaña de Pedidos con Notificación
+            { id: 'orders', icon: Truck, label: 'Pedidos', badge: pendingOrdersCount, badgeColor: 'bg-blue-500' },
             { id: 'promotions', icon: Tag, label: 'Promociones' },
             { id: 'analytics', icon: BarChart3, label: 'Estadísticas' },
-            { id: 'messages', icon: Bell, label: 'Mensajes', badge: totalUnreadMessages },
+            { id: 'messages', icon: Bell, label: 'Mensajes', badge: totalUnreadMessages, badgeColor: 'bg-red-500' },
             { id: 'resellers', icon: Users, label: 'Revendedores' },
             { id: 'clients', icon: UserCircle, label: 'Clientes' },
             { id: 'settings', icon: Settings, label: 'Configuración' },
@@ -113,7 +122,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     {item.label}
                 </div>
                 {item.badge && item.badge > 0 ? (
-                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
+                    <span className={`${item.badgeColor || 'bg-red-500'} text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg`}>
                         {item.badge}
                     </span>
                 ) : null}
@@ -134,6 +143,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         {/* INVENTORY TAB */}
         {activeTab === 'inventory' && (
              <InventoryTab products={products} setProducts={setProducts} />
+        )}
+
+        {/* ORDERS TAB (NUEVO) */}
+        {activeTab === 'orders' && (
+             <OrdersTab resellers={resellers} setResellers={setResellers} />
         )}
 
         {/* PROMOTIONS TAB */}
@@ -167,7 +181,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 siteContent={siteContent} 
                 setSiteContent={setSiteContent} 
                 contactInfo={contactInfo} 
-                setContactInfo={setContactInfo}
+                setContactInfo={setContactInfo} 
                 paymentConfig={paymentConfig}
                 setPaymentConfig={setPaymentConfig}
             />

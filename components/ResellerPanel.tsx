@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Reseller } from '../types';
+import { Reseller, Product } from '../types'; // Importar Product
 import { 
     LayoutDashboard, Package, Users, ShoppingCart, MessageSquare, 
     LogOut, DollarSign
 } from 'lucide-react';
 
-// Importamos los componentes modulares
 import ResellerDashboard from './reseller/ResellerDashboard';
 import ResellerSales from './reseller/ResellerSales';
 import ResellerInventory from './reseller/ResellerInventory';
@@ -18,21 +17,19 @@ interface ResellerPanelProps {
     setResellers: (resellers: Reseller[]) => void;
     onClose: () => void;
     initialUser?: Reseller | null;
+    products: Product[]; // NUEVA PROP: Necesitamos el catálogo global para comprar
 }
 
-const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, onClose, initialUser }) => {
-    // Initialize with passed user if available
+const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, onClose, initialUser, products }) => {
     const [currentUser, setCurrentUser] = useState<Reseller | null>(initialUser || null);
     
-    // Internal login states (fallback logic)
+    // Internal login states
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     
-    // Dashboard States
     const [activeTab, setActiveTab] = useState<'dashboard' | 'sales' | 'inventory' | 'clients' | 'orders' | 'messages'>('dashboard');
 
-    // --- LOGIN LOGIC ---
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
         const found = resellers.find(r => r.email === email && r.password === password && r.active);
@@ -51,14 +48,11 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
         onClose();
     };
 
-    // --- GLOBAL UPDATER ---
     const updateResellerState = (updatedUser: Reseller) => {
         const newResellers = resellers.map(r => r.id === updatedUser.id ? updatedUser : r);
         setResellers(newResellers);
         setCurrentUser(updatedUser);
     };
-
-    // --- RENDERERS ---
 
     if (!currentUser) {
         return (
@@ -88,14 +82,12 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
     return (
         <div className="min-h-screen relative bg-[#0a0a0a] font-sans text-gray-200 overflow-hidden">
              
-            {/* Background Ambience */}
             <div className="fixed inset-0 z-0 pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[#ccff00]/10 rounded-full blur-[100px] animate-blob"></div>
                 <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-900/10 rounded-full blur-[100px] animate-blob animation-delay-2000"></div>
             </div>
 
             <div className="relative z-10 flex min-h-screen">
-                {/* Sidebar */}
                 <aside className="w-64 bg-black/60 backdrop-blur-xl border-r border-white/10 flex flex-col fixed inset-y-0 z-50 shadow-2xl">
                     <div className="p-6 border-b border-white/10">
                         <h2 className="text-xl font-bold text-white italic">HOLA, <span className="text-[#ccff00] uppercase">{currentUser.name.split(' ')[0]}</span></h2>
@@ -133,7 +125,6 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
                     </div>
                 </aside>
 
-                {/* Main Content */}
                 <main className="ml-64 flex-1 p-8 overflow-y-auto h-screen">
                     
                     {activeTab === 'dashboard' && (
@@ -156,8 +147,13 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
                         <ResellerMessages currentUser={currentUser} onUpdateReseller={updateResellerState} />
                     )}
                     
+                    {/* PASAMOS LOS PRODUCTOS AL COMPONENTE DE ORDENES */}
                     {activeTab === 'orders' && (
-                         <ResellerOrders currentUser={currentUser} />
+                         <ResellerOrders 
+                            currentUser={currentUser} 
+                            adminProducts={products} 
+                            onUpdateReseller={updateResellerState} 
+                        />
                     )}
                 </main>
             </div>

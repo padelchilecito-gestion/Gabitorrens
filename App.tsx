@@ -13,13 +13,9 @@ import SocialProof from './components/SocialProof';
 import { initialProducts, initialContactInfo, initialBanners, initialResellers, initialAdminClients, initialSiteContent, initialPaymentConfig, initialSocialReviews } from './data';
 import { Product, CartItem, Category, ContactInfo, Banner, Reseller, Client, SiteContent, User, PaymentConfig, SocialReview, Brand, PeptoneFormula } from './types';
 import { Sparkles, SlidersHorizontal, Lock, MapPin, Phone, Mail, Instagram } from 'lucide-react';
-
-// Importamos el hook que acabamos de crear
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 function App() {
-  // --- ESTADO PERSISTENTE (Se guarda en el navegador) ---
-  // Cuando conectemos Firebase, solo cambiaremos esta parte.
   const [products, setProducts] = useLocalStorage<Product[]>('products', initialProducts);
   const [contactInfo, setContactInfo] = useLocalStorage<ContactInfo>('contactInfo', initialContactInfo);
   const [paymentConfig, setPaymentConfig] = useLocalStorage<PaymentConfig>('paymentConfig', initialPaymentConfig);
@@ -29,7 +25,6 @@ function App() {
   const [siteContent, setSiteContent] = useLocalStorage<SiteContent>('siteContent', initialSiteContent);
   const [socialReviews, setSocialReviews] = useLocalStorage<SocialReview[]>('socialReviews', initialSocialReviews);
   
-  // --- ESTADO DE INTERFAZ (No necesita guardarse) ---
   const [currentView, setCurrentView] = useState<'shop' | 'admin' | 'reseller' | 'login'>('shop');
   const [activeBrand, setActiveBrand] = useState<Brand>('informa');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -39,8 +34,6 @@ function App() {
   const [loggedReseller, setLoggedReseller] = useState<Reseller | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category>('Todos');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-
-  // --- LÓGICA DE NEGOCIO ---
 
   const filteredProducts = useMemo(() => {
       return products.filter(p => {
@@ -80,17 +73,13 @@ function App() {
         .map(p => p.category)
   ))].sort() as Category[];
 
-  // --- MANEJO DEL CARRITO ---
-
   const addToCart = (product: Product, quantity: number = 1, discount: number = 0) => {
     if (product.stock < quantity) return;
     
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
-      
       if (existing) {
         if (existing.quantity + quantity > product.stock) return prev;
-        
         return prev.map(item => 
           item.id === product.id ? { 
               ...item, 
@@ -165,8 +154,6 @@ function App() {
       }
   };
 
-  // --- RENDER ---
-
   if (currentView === 'login') {
       return (
           <Login 
@@ -211,6 +198,7 @@ function App() {
                 setCurrentView('shop');
             }}
             initialUser={loggedReseller}
+            products={products} // <--- SE PASA EL CATÁLOGO GLOBAL AQUÍ
         />
     );
   }
@@ -218,7 +206,6 @@ function App() {
   return (
     <div className={`min-h-screen relative transition-colors duration-700 ${getBgClass()}`}>
       
-      {/* Background Ambience */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
          {isSports && (
              <>
@@ -261,7 +248,6 @@ function App() {
             siteContent={siteContent}
         />
 
-        {/* Main Content Area */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             
             {activeBrand !== 'biofarma' && (
@@ -280,7 +266,6 @@ function App() {
                 </div>
             )}
 
-            {/* PRODUCT GRID */}
             {filteredProducts.length > 0 && (
                 <div className="mb-16">
                     {activeBrand === 'biofarma' && <h3 className="text-2xl font-bold text-blue-900 mb-6 border-l-4 border-blue-500 pl-4">Destacados y Kits</h3>}
@@ -298,7 +283,6 @@ function App() {
                 </div>
             )}
 
-            {/* BIOFARMA VADEMECUM */}
             {activeBrand === 'biofarma' && (
                 <div className="mb-16 animate-slide-up">
                     <BioFarmaCatalog 
@@ -308,7 +292,6 @@ function App() {
                 </div>
             )}
 
-            {/* Empty State */}
             {filteredProducts.length === 0 && activeBrand !== 'biofarma' && (
                 <div className="text-center py-20 animate-fade-in bg-white/5 rounded-2xl border border-white/5">
                     <SlidersHorizontal className={`w-12 h-12 mx-auto mb-4 ${isSports || isIqual ? 'text-gray-600' : 'text-gray-300'}`} />
@@ -337,7 +320,6 @@ function App() {
 
         <SocialProof reviews={socialReviews} activeBrand={activeBrand} />
 
-        {/* Footer */}
         <footer className={`${
             isSports ? 'bg-black/80 border-t border-white/5' : isIqual ? 'bg-slate-900/80 border-t border-white/5' : isBio ? 'bg-white border-t border-blue-100' : 'bg-stone-100/80 border-t border-stone-200'
         } backdrop-blur-lg pt-16 pb-8`}>
