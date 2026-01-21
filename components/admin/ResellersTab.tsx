@@ -17,17 +17,35 @@ const ResellersTab: React.FC<ResellersTabProps> = ({ resellers, setResellers, pr
 
     // --- HANDLERS ---
     const handleSaveReseller = () => {
-        if (!currentReseller.name || !currentReseller.email || !currentReseller.password) return;
+        if (!currentReseller.name || !currentReseller.email || !currentReseller.password) {
+            alert("Por favor completa todos los campos obligatorios.");
+            return;
+        }
+
+        // LIMPIEZA DE DATOS: Quitamos espacios y normalizamos email
+        const cleanName = currentReseller.name.trim();
+        const cleanEmail = currentReseller.email.trim().toLowerCase();
+        const cleanPassword = currentReseller.password.trim();
+        const cleanRegion = currentReseller.region?.trim() || 'General';
+
+        // VALIDACIÓN: Evitar correos duplicados al crear uno nuevo
+        if (!currentReseller.id) {
+            const exists = resellers.some(r => r.email.toLowerCase() === cleanEmail);
+            if (exists) {
+                alert("Este correo electrónico ya está registrado.");
+                return;
+            }
+        }
         
         const resellerToSave: Reseller = {
             id: currentReseller.id || `R-${Date.now()}`,
-            name: currentReseller.name,
-            email: currentReseller.email,
-            password: currentReseller.password,
-            region: currentReseller.region || 'General',
+            name: cleanName,
+            email: cleanEmail,
+            password: cleanPassword,
+            region: cleanRegion,
             active: currentReseller.active ?? true,
-            // Si es nuevo, inicializamos su stock con una copia del catálogo global
-            stock: currentReseller.stock || JSON.parse(JSON.stringify(products)),
+            // Si es nuevo, inicializamos su stock en 0 para todos los productos
+            stock: currentReseller.stock || products.map(p => ({ ...p, stock: 0 })),
             clients: currentReseller.clients || [],
             orders: currentReseller.orders || [],
             messages: currentReseller.messages || [],

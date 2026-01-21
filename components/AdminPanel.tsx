@@ -14,7 +14,7 @@ import ClientsTab from './admin/ClientsTab';
 import MessagesTab from './admin/MessagesTab';
 import AnalyticsTab from './admin/AnalyticsTab';
 import SettingsTab from './admin/SettingsTab';
-import OrdersTab from './admin/OrdersTab'; // <--- NUEVO COMPONENTE
+import OrdersTab from './admin/OrdersTab'; // <--- Importamos el nuevo componente
 
 interface AdminPanelProps {
   products: Product[];
@@ -37,44 +37,20 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ 
-  products = [], 
-  setProducts, 
-  contactInfo, 
-  setContactInfo, 
-  paymentConfig,
-  setPaymentConfig,
-  banners = [],
-  setBanners,
-  socialReviews = [],
-  setSocialReviews,
-  resellers = [],
-  setResellers,
-  adminClients = [],
-  setAdminClients,
-  onClose,
-  siteContent,
-  setSiteContent
+  products = [], setProducts, contactInfo, setContactInfo, paymentConfig, setPaymentConfig,
+  banners = [], setBanners, socialReviews = [], setSocialReviews, resellers = [], setResellers,
+  adminClients = [], setAdminClients, onClose, siteContent, setSiteContent
 }) => {
-  // Agregamos 'orders' a los estados posibles del tab
   const [activeTab, setActiveTab] = useState<'inventory' | 'settings' | 'promotions' | 'resellers' | 'clients' | 'messages' | 'analytics' | 'orders'>('orders');
 
-  // Safety Check
   if (!products || !contactInfo || !siteContent) {
-      return (
-          <div className="min-h-screen bg-zinc-900 text-white flex items-center justify-center">
-              <div className="text-center">
-                  <h2 className="text-xl font-bold mb-2">Cargando Panel de Control...</h2>
-                  <p className="text-zinc-500 text-sm">Si esto persiste, verifica la conexión de datos.</p>
-                  <button onClick={onClose} className="mt-4 px-4 py-2 bg-white/10 rounded">Volver</button>
-              </div>
-          </div>
-      );
+      return <div className="min-h-screen bg-zinc-900 text-white flex items-center justify-center">Cargando...</div>;
   }
 
-  // Cálculos para notificaciones
+  // --- CÁLCULO DE NOTIFICACIONES ---
   const totalUnreadMessages = resellers.reduce((acc, r) => acc + r.messages.filter(m => m.sender === 'reseller' && !m.read).length, 0);
   
-  // Calcular pedidos pendientes para la notificación
+  // Contamos cuántos pedidos están en estado 'Pendiente'
   const pendingOrdersCount = resellers.reduce((acc, r) => acc + r.orders.filter(o => o.status === 'Pendiente').length, 0);
 
   return (
@@ -84,23 +60,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       <div className="fixed inset-0 z-0 pointer-events-none">
          <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[#ccff00]/10 rounded-full blur-[100px] animate-blob"></div>
          <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-900/10 rounded-full blur-[100px] animate-blob animation-delay-2000"></div>
-         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-900/5 rounded-full blur-[120px]"></div>
       </div>
       
       {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 w-64 bg-black/60 backdrop-blur-xl border-r border-white/10 shadow-2xl flex flex-col z-50">
         <div className="p-6 border-b border-white/10">
           <h2 className="text-xl font-bold flex items-center gap-2 text-white italic">
-            <LayoutDashboard className="text-[#ccff00]" />
-            Panel <span className="text-[#ccff00]">Admin</span>
+            <LayoutDashboard className="text-[#ccff00]" /> Panel <span className="text-[#ccff00]">Admin</span>
           </h2>
         </div>
         
         <nav className="flex-1 p-4 space-y-2">
           {[
             { id: 'inventory', icon: Package, label: 'Inventario' },
-            // Nueva Pestaña de Pedidos con Notificación
-            { id: 'orders', icon: Truck, label: 'Pedidos', badge: pendingOrdersCount, badgeColor: 'bg-blue-500' },
+            // Agregamos la pestaña Pedidos con su Badge azul
+            { id: 'orders', icon: Truck, label: 'Pedidos', badge: pendingOrdersCount, badgeColor: 'bg-blue-600' },
             { id: 'promotions', icon: Tag, label: 'Promociones' },
             { id: 'analytics', icon: BarChart3, label: 'Estadísticas' },
             { id: 'messages', icon: Bell, label: 'Mensajes', badge: totalUnreadMessages, badgeColor: 'bg-red-500' },
@@ -122,7 +96,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     {item.label}
                 </div>
                 {item.badge && item.badge > 0 ? (
-                    <span className={`${item.badgeColor || 'bg-red-500'} text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg`}>
+                    <span className={`${item.badgeColor || 'bg-red-500'} text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg animate-pulse`}>
                         {item.badge}
                     </span>
                 ) : null}
@@ -139,54 +113,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Main Content */}
       <div className="relative ml-64 p-8 z-10 overflow-y-auto h-screen">
-        
-        {/* INVENTORY TAB */}
-        {activeTab === 'inventory' && (
-             <InventoryTab products={products} setProducts={setProducts} />
-        )}
-
-        {/* ORDERS TAB (NUEVO) */}
-        {activeTab === 'orders' && (
-             <OrdersTab resellers={resellers} setResellers={setResellers} />
-        )}
-
-        {/* PROMOTIONS TAB */}
-        {activeTab === 'promotions' && (
-             <PromotionsTab banners={banners} setBanners={setBanners} products={products} />
-        )}
-        
-        {/* RESELLERS TAB */}
-        {activeTab === 'resellers' && (
-            <ResellersTab resellers={resellers} setResellers={setResellers} products={products} />
-        )}
-        
-        {/* CLIENTS TAB */}
-        {activeTab === 'clients' && (
-            <ClientsTab adminClients={adminClients} setAdminClients={setAdminClients} />
-        )}
-
-        {/* MESSAGES TAB */}
-        {activeTab === 'messages' && (
-            <MessagesTab resellers={resellers} setResellers={setResellers} />
-        )}
-        
-        {/* ANALYTICS TAB */}
-        {activeTab === 'analytics' && (
-             <AnalyticsTab products={products} resellers={resellers} />
-        )}
-
-        {/* SETTINGS TAB */}
-        {activeTab === 'settings' && (
-            <SettingsTab 
-                siteContent={siteContent} 
-                setSiteContent={setSiteContent} 
-                contactInfo={contactInfo} 
-                setContactInfo={setContactInfo} 
-                paymentConfig={paymentConfig}
-                setPaymentConfig={setPaymentConfig}
-            />
-        )}
-
+        {activeTab === 'inventory' && <InventoryTab products={products} setProducts={setProducts} />}
+        {activeTab === 'orders' && <OrdersTab resellers={resellers} setResellers={setResellers} />}
+        {activeTab === 'promotions' && <PromotionsTab banners={banners} setBanners={setBanners} products={products} />}
+        {activeTab === 'resellers' && <ResellersTab resellers={resellers} setResellers={setResellers} products={products} />}
+        {activeTab === 'clients' && <ClientsTab adminClients={adminClients} setAdminClients={setAdminClients} />}
+        {activeTab === 'messages' && <MessagesTab resellers={resellers} setResellers={setResellers} />}
+        {activeTab === 'analytics' && <AnalyticsTab products={products} resellers={resellers} />}
+        {activeTab === 'settings' && <SettingsTab siteContent={siteContent} setSiteContent={setSiteContent} contactInfo={contactInfo} setContactInfo={setContactInfo} paymentConfig={paymentConfig} setPaymentConfig={setPaymentConfig} />}
       </div>
     </div>
   );

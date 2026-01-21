@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Reseller } from '../types';
 import { ShieldCheck, LogIn, ChevronLeft } from 'lucide-react';
@@ -20,16 +19,27 @@ const Login: React.FC<LoginProps> = ({ resellers, onLoginSuccess, onClose }) => 
         setError('');
         setIsLoading(true);
 
+        // LIMPIEZA: Quitamos espacios accidentales
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanPassword = password.trim();
+
         // Simulate network delay
         setTimeout(() => {
             // 1. Check Admin Credentials (Hardcoded for demo purposes)
-            if (email === 'admin@store.com' && password === 'admin123') {
+            // Aseguramos que también funcione con o sin espacios para el admin
+            if (cleanEmail === 'admin@store.com' && cleanPassword === 'admin123') {
                 onLoginSuccess('admin');
                 return;
             }
 
             // 2. Check Reseller Credentials
-            const foundReseller = resellers.find(r => r.email === email && r.password === password && r.active);
+            // Comparamos de forma segura ignorando mayúsculas en el email
+            const foundReseller = resellers.find(r => 
+                r.email.trim().toLowerCase() === cleanEmail && 
+                r.password.trim() === cleanPassword && 
+                r.active
+            );
+
             if (foundReseller) {
                 onLoginSuccess('reseller', foundReseller);
                 return;

@@ -1,4 +1,3 @@
-
 import { Product, ContactInfo, Banner, Reseller, Client, SiteContent, PaymentConfig, SocialReview, PeptoneFormula } from './types';
 
 // --- VADEMÉCUM LINFAR DATA ---
@@ -701,6 +700,8 @@ export const initialBanners: Banner[] = [
     }
 ];
 
+// --- CORRECTED INITIAL RESELLERS ---
+// Ahora el stock inicial de los revendedores se inicializa en 0 para cada producto
 export const initialResellers: Reseller[] = [
     {
         id: 'R-001',
@@ -709,7 +710,7 @@ export const initialResellers: Reseller[] = [
         password: '1234',
         region: 'Zona Norte',
         active: true,
-        stock: JSON.parse(JSON.stringify(initialProducts)), 
+        stock: initialProducts.map(p => ({ ...p, stock: 0 })), // Stock en 0, no copia del admin
         clients: [
             {
                 id: 'C-001',

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Reseller, Product } from '../types'; // Importar Product
+import React, { useState, useEffect } from 'react';
+import { Reseller, Product } from '../types';
 import { 
     LayoutDashboard, Package, Users, ShoppingCart, MessageSquare, 
     LogOut, DollarSign
@@ -17,13 +17,17 @@ interface ResellerPanelProps {
     setResellers: (resellers: Reseller[]) => void;
     onClose: () => void;
     initialUser?: Reseller | null;
-    products: Product[]; // NUEVA PROP: Necesitamos el catálogo global para comprar
+    products: Product[];
 }
 
 const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, onClose, initialUser, products }) => {
-    const [currentUser, setCurrentUser] = useState<Reseller | null>(initialUser || null);
+    // En lugar de guardar todo el objeto usuario, guardamos solo su ID para buscarlo siempre actualizado
+    const [currentUserId, setCurrentUserId] = useState<string | null>(initialUser?.id || null);
     
-    // Internal login states
+    // Buscamos al usuario "en vivo" desde la lista global
+    const currentUser = resellers.find(r => r.id === currentUserId) || null;
+
+    // Login local states
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -34,7 +38,7 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
         e.preventDefault();
         const found = resellers.find(r => r.email === email && r.password === password && r.active);
         if (found) {
-            setCurrentUser(found);
+            setCurrentUserId(found.id); // Guardamos solo el ID
             setError('');
         } else {
             setError('Credenciales inválidas o cuenta inactiva.');
@@ -42,21 +46,22 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
     };
 
     const handleLogout = () => {
-        setCurrentUser(null);
+        setCurrentUserId(null);
         setEmail('');
         setPassword('');
         onClose();
     };
 
+    // Esta función actualiza la lista global, lo que a su vez actualiza 'currentUser' automáticamente
     const updateResellerState = (updatedUser: Reseller) => {
         const newResellers = resellers.map(r => r.id === updatedUser.id ? updatedUser : r);
         setResellers(newResellers);
-        setCurrentUser(updatedUser);
     };
 
     if (!currentUser) {
         return (
             <div className="min-h-screen relative bg-[#0a0a0a] flex items-center justify-center p-4 overflow-hidden">
+                {/* Login Screen (Sin cambios visuales) */}
                 <div className="absolute inset-0 z-0 pointer-events-none">
                     <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[#ccff00]/10 rounded-full blur-[100px] animate-blob"></div>
                     <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-900/10 rounded-full blur-[100px] animate-blob animation-delay-2000"></div>
@@ -78,6 +83,9 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
             </div>
         );
     }
+
+    // Calcula notificaciones no leídas (mensajes del admin)
+    const unreadMessages = currentUser.messages.filter(m => m.sender === 'admin' && !m.read).length;
 
     return (
         <div className="min-h-screen relative bg-[#0a0a0a] font-sans text-gray-200 overflow-hidden">
@@ -101,19 +109,26 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
                             { id: 'inventory', icon: Package, label: 'Mi Stock' },
                             { id: 'orders', icon: ShoppingCart, label: 'Reposición' },
                             { id: 'clients', icon: Users, label: 'Clientes' },
-                            { id: 'messages', icon: MessageSquare, label: 'Chat Admin' },
+                            { id: 'messages', icon: MessageSquare, label: 'Chat Admin', badge: unreadMessages },
                         ].map(item => (
                             <button 
                                 key={item.id}
                                 onClick={() => setActiveTab(item.id as any)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${
+                                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 ${
                                     activeTab === item.id 
                                     ? 'bg-[#ccff00]/90 text-black font-bold shadow-[0_0_20px_rgba(204,255,0,0.3)]' 
                                     : 'hover:bg-white/10 hover:text-white text-zinc-400'
                                 }`}
                             >
-                                <item.icon className="w-5 h-5" />
-                                {item.label}
+                                <div className="flex items-center gap-3">
+                                    <item.icon className="w-5 h-5" />
+                                    {item.label}
+                                </div>
+                                {item.badge && item.badge > 0 ? (
+                                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                        {item.badge}
+                                    </span>
+                                ) : null}
                             </button>
                         ))}
                     </nav>
@@ -126,35 +141,12 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
                 </aside>
 
                 <main className="ml-64 flex-1 p-8 overflow-y-auto h-screen">
-                    
-                    {activeTab === 'dashboard' && (
-                        <ResellerDashboard currentUser={currentUser} />
-                    )}
-
-                    {activeTab === 'sales' && (
-                        <ResellerSales currentUser={currentUser} onUpdateReseller={updateResellerState} />
-                    )}
-
-                    {activeTab === 'inventory' && (
-                        <ResellerInventory currentUser={currentUser} />
-                    )}
-                    
-                    {activeTab === 'clients' && (
-                        <ResellerClients currentUser={currentUser} onUpdateReseller={updateResellerState} />
-                    )}
-                    
-                    {activeTab === 'messages' && (
-                        <ResellerMessages currentUser={currentUser} onUpdateReseller={updateResellerState} />
-                    )}
-                    
-                    {/* PASAMOS LOS PRODUCTOS AL COMPONENTE DE ORDENES */}
-                    {activeTab === 'orders' && (
-                         <ResellerOrders 
-                            currentUser={currentUser} 
-                            adminProducts={products} 
-                            onUpdateReseller={updateResellerState} 
-                        />
-                    )}
+                    {activeTab === 'dashboard' && <ResellerDashboard currentUser={currentUser} />}
+                    {activeTab === 'sales' && <ResellerSales currentUser={currentUser} onUpdateReseller={updateResellerState} />}
+                    {activeTab === 'inventory' && <ResellerInventory currentUser={currentUser} />}
+                    {activeTab === 'clients' && <ResellerClients currentUser={currentUser} onUpdateReseller={updateResellerState} />}
+                    {activeTab === 'messages' && <ResellerMessages currentUser={currentUser} onUpdateReseller={updateResellerState} />}
+                    {activeTab === 'orders' && <ResellerOrders currentUser={currentUser} adminProducts={products} onUpdateReseller={updateResellerState} />}
                 </main>
             </div>
         </div>
