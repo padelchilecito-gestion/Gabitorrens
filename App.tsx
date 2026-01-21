@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import ProductCard from './components/ProductCard';
@@ -12,10 +12,11 @@ import Login from './components/Login';
 import SocialProof from './components/SocialProof';
 import { initialProducts, initialContactInfo, initialBanners, initialResellers, initialAdminClients, initialSiteContent, initialPaymentConfig, initialSocialReviews } from './data';
 import { Product, CartItem, Category, ContactInfo, Banner, Reseller, Client, SiteContent, User, PaymentConfig, SocialReview, Brand, PeptoneFormula } from './types';
-import { Sparkles, SlidersHorizontal, Lock, MapPin, Phone, Mail, Instagram } from 'lucide-react';
+import { Sparkles, SlidersHorizontal, Lock, MapPin, Phone, Mail, Instagram, Bell } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 function App() {
+  // --- ESTADO PERSISTENTE (Local Storage) ---
   const [products, setProducts] = useLocalStorage<Product[]>('products', initialProducts);
   const [contactInfo, setContactInfo] = useLocalStorage<ContactInfo>('contactInfo', initialContactInfo);
   const [paymentConfig, setPaymentConfig] = useLocalStorage<PaymentConfig>('paymentConfig', initialPaymentConfig);
@@ -25,6 +26,7 @@ function App() {
   const [siteContent, setSiteContent] = useLocalStorage<SiteContent>('siteContent', initialSiteContent);
   const [socialReviews, setSocialReviews] = useLocalStorage<SocialReview[]>('socialReviews', initialSocialReviews);
   
+  // --- ESTADO DE INTERFAZ ---
   const [currentView, setCurrentView] = useState<'shop' | 'admin' | 'reseller' | 'login'>('shop');
   const [activeBrand, setActiveBrand] = useState<Brand>('informa');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -34,6 +36,37 @@ function App() {
   const [loggedReseller, setLoggedReseller] = useState<Reseller | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category>('Todos');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // --- ESTADO PARA NOTIFICACIONES (TOAST) ---
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  // --- EFECTO: DETECTAR NUEVOS MENSAJES / ACTUALIZACIONES ---
+  useEffect(() => {
+      if (loggedReseller) {
+          // Buscar la versión más reciente del usuario en la base de datos global
+          const updatedUser = resellers.find(r => r.id === loggedReseller.id);
+          
+          if (updatedUser) {
+              // Verificamos el último mensaje recibido
+              const lastMsg = updatedUser.messages[updatedUser.messages.length - 1];
+              
+              // Si el último mensaje es del admin, no ha sido leído y NO estamos mostrando ya una notificación
+              if (lastMsg && lastMsg.sender === 'admin' && !lastMsg.read && !showToast) {
+                  // Personalizamos el mensaje según el contenido (si es pedido o chat normal)
+                  const isOrderUpdate = lastMsg.content.includes('pedido');
+                  setToastMessage(isOrderUpdate ? "📦 Actualización de Pedido" : "💬 Nuevo mensaje del Administrador");
+                  
+                  setShowToast(true);
+                  // Ocultar automáticamente después de 4 segundos
+                  const timer = setTimeout(() => setShowToast(false), 4000);
+                  return () => clearTimeout(timer);
+              }
+          }
+      }
+  }, [resellers, loggedReseller, showToast]);
+
+  // --- LÓGICA DE NEGOCIO ---
 
   const filteredProducts = useMemo(() => {
       return products.filter(p => {
@@ -72,6 +105,8 @@ function App() {
         .filter(p => p.brand === activeBrand)
         .map(p => p.category)
   ))].sort() as Category[];
+
+  // --- CARRITO ---
 
   const addToCart = (product: Product, quantity: number = 1, discount: number = 0) => {
     if (product.stock < quantity) return;
@@ -154,6 +189,8 @@ function App() {
       }
   };
 
+  // --- RENDER DE VISTAS ---
+
   if (currentView === 'login') {
       return (
           <Login 
@@ -190,16 +227,25 @@ function App() {
 
   if (currentView === 'reseller') {
     return (
-        <ResellerPanel 
-            resellers={resellers}
-            setResellers={setResellers}
-            onClose={() => {
-                setLoggedReseller(null);
-                setCurrentView('shop');
-            }}
-            initialUser={loggedReseller}
-            products={products} // <--- SE PASA EL CATÁLOGO GLOBAL AQUÍ
-        />
+        <>
+            <ResellerPanel 
+                resellers={resellers}
+                setResellers={setResellers}
+                onClose={() => {
+                    setLoggedReseller(null);
+                    setCurrentView('shop');
+                }}
+                initialUser={loggedReseller}
+                products={products}
+            />
+            
+            {/* NOTIFICACIÓN TOAST FLOTANTE (Solo en panel reseller) */}
+            {showToast && (
+                <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-[#ccff00] text-black px-6 py-3 rounded-full shadow-2xl z-[100] animate-slide-up font-bold flex items-center gap-2 border border-black/10">
+                    <Bell className="w-4 h-4" /> {toastMessage}
+                </div>
+            )}
+        </>
     );
   }
 

@@ -21,24 +21,42 @@ interface ResellerPanelProps {
 }
 
 const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, onClose, initialUser, products }) => {
-    // En lugar de guardar todo el objeto usuario, guardamos solo su ID para buscarlo siempre actualizado
     const [currentUserId, setCurrentUserId] = useState<string | null>(initialUser?.id || null);
     
-    // Buscamos al usuario "en vivo" desde la lista global
+    // Buscamos al usuario "en vivo"
     const currentUser = resellers.find(r => r.id === currentUserId) || null;
 
-    // Login local states
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     
     const [activeTab, setActiveTab] = useState<'dashboard' | 'sales' | 'inventory' | 'clients' | 'orders' | 'messages'>('dashboard');
 
+    // --- EFECTO PARA MARCAR MENSAJES COMO LEÍDOS ---
+    useEffect(() => {
+        if (currentUser && activeTab === 'messages') {
+            const hasUnread = currentUser.messages.some(m => m.sender === 'admin' && !m.read);
+            
+            if (hasUnread) {
+                const updatedReseller = {
+                    ...currentUser,
+                    messages: currentUser.messages.map(m => 
+                        m.sender === 'admin' ? { ...m, read: true } : m
+                    )
+                };
+                
+                // Actualizamos el estado global
+                const newResellers = resellers.map(r => r.id === currentUser.id ? updatedReseller : r);
+                setResellers(newResellers);
+            }
+        }
+    }, [activeTab, currentUser, resellers, setResellers]);
+
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
         const found = resellers.find(r => r.email === email && r.password === password && r.active);
         if (found) {
-            setCurrentUserId(found.id); // Guardamos solo el ID
+            setCurrentUserId(found.id);
             setError('');
         } else {
             setError('Credenciales inválidas o cuenta inactiva.');
@@ -52,7 +70,6 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
         onClose();
     };
 
-    // Esta función actualiza la lista global, lo que a su vez actualiza 'currentUser' automáticamente
     const updateResellerState = (updatedUser: Reseller) => {
         const newResellers = resellers.map(r => r.id === updatedUser.id ? updatedUser : r);
         setResellers(newResellers);
@@ -61,7 +78,6 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
     if (!currentUser) {
         return (
             <div className="min-h-screen relative bg-[#0a0a0a] flex items-center justify-center p-4 overflow-hidden">
-                {/* Login Screen (Sin cambios visuales) */}
                 <div className="absolute inset-0 z-0 pointer-events-none">
                     <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[#ccff00]/10 rounded-full blur-[100px] animate-blob"></div>
                     <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-900/10 rounded-full blur-[100px] animate-blob animation-delay-2000"></div>
@@ -84,7 +100,6 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
         );
     }
 
-    // Calcula notificaciones no leídas (mensajes del admin)
     const unreadMessages = currentUser.messages.filter(m => m.sender === 'admin' && !m.read).length;
 
     return (
@@ -125,7 +140,7 @@ const ResellerPanel: React.FC<ResellerPanelProps> = ({ resellers, setResellers, 
                                     {item.label}
                                 </div>
                                 {item.badge && item.badge > 0 ? (
-                                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
                                         {item.badge}
                                     </span>
                                 ) : null}

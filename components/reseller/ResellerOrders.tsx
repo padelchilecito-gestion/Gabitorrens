@@ -4,7 +4,7 @@ import { Plus, ShoppingCart, Trash2, X, Package } from 'lucide-react';
 
 interface ResellerOrdersProps {
     currentUser: Reseller;
-    adminProducts: Product[]; // Catálogo completo del Admin
+    adminProducts: Product[];
     onUpdateReseller: (updated: Reseller) => void;
 }
 
@@ -12,7 +12,6 @@ const ResellerOrders: React.FC<ResellerOrdersProps> = ({ currentUser, adminProdu
     const [isCreatingOrder, setIsCreatingOrder] = useState(false);
     const [orderCart, setOrderCart] = useState<CartItem[]>([]);
     
-    // Configuración de descuento para revendedores (ej. 30% de descuento sobre precio público)
     const WHOLESALE_DISCOUNT = 0.30; 
 
     // --- CART LOGIC ---
@@ -36,45 +35,26 @@ const ResellerOrders: React.FC<ResellerOrdersProps> = ({ currentUser, adminProdu
         const totalPublic = orderCart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
         const totalWholesale = totalPublic * (1 - WHOLESALE_DISCOUNT);
 
-        // 1. Crear el registro del pedido
+        // 1. Crear el registro del pedido con estado "Preparando"
         const newOrder: ResellerOrder = {
             id: `PED-${Date.now()}`,
             clientId: currentUser.id,
             clientName: currentUser.name,
             items: [...orderCart],
             total: totalWholesale,
-            status: 'En Camino', // Simulamos que se aprueba y envía
+            status: 'Pendiente', // Usamos 'Pendiente' para indicar 'Preparando' al Admin
             date: new Date().toLocaleDateString(),
-            deliveryTimeEstimate: '48-72hs'
+            deliveryTimeEstimate: 'A confirmar'
         };
 
-        // 2. Actualizar el Stock del Revendedor (Simulamos recepción inmediata para que veas el cambio)
-        const updatedStock = [...currentUser.stock];
-        
-        orderCart.forEach(cartItem => {
-            const existingProdIndex = updatedStock.findIndex(p => p.id === cartItem.id);
-            if (existingProdIndex >= 0) {
-                // Si ya lo tiene, suma stock
-                updatedStock[existingProdIndex] = {
-                    ...updatedStock[existingProdIndex],
-                    stock: updatedStock[existingProdIndex].stock + cartItem.quantity
-                };
-            } else {
-                // Si es un producto nuevo para el revendedor, lo agrega
-                // Aseguramos que se guarde como Product (sin los campos extra de CartItem)
-                const { quantity, discount, selectedPresentation, ...productData } = cartItem;
-                updatedStock.push({
-                    ...productData,
-                    stock: cartItem.quantity
-                });
-            }
-        });
+        // NOTA: No sumamos stock aún. El stock se suma cuando llega (Entregado) o manualmente. 
+        // Por simplificación actual, lo dejaremos para ingreso manual o cuando el admin marque "Entregado" si quisieras automatizarlo más.
+        // Por ahora, solo registramos el pedido.
 
-        // 3. Guardar todo
+        // 3. Guardar pedido
         onUpdateReseller({
             ...currentUser,
-            orders: [newOrder, ...currentUser.orders],
-            stock: updatedStock
+            orders: [newOrder, ...currentUser.orders]
         });
 
         setIsCreatingOrder(false);
@@ -113,8 +93,10 @@ const ResellerOrders: React.FC<ResellerOrdersProps> = ({ currentUser, adminProdu
                                         <span className={`text-[10px] px-2 py-0.5 rounded border ${
                                             o.status === 'Pendiente' ? 'border-yellow-500 text-yellow-500' :
                                             o.status === 'En Camino' ? 'border-blue-500 text-blue-500' :
-                                            'border-green-500 text-green-500'
-                                        }`}>{o.status}</span>
+                                            o.status === 'Entregado' ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'
+                                        }`}>
+                                            {o.status === 'Pendiente' ? 'Preparando' : o.status}
+                                        </span>
                                     </div>
                                     <span className="text-zinc-500 text-xs">{o.date} · {o.items.length} productos</span>
                                 </div>
@@ -127,12 +109,12 @@ const ResellerOrders: React.FC<ResellerOrdersProps> = ({ currentUser, adminProdu
                 )}
             </div>
 
-            {/* MODAL DE NUEVO PEDIDO (TIENDA B2B) */}
+            {/* MODAL DE NUEVO PEDIDO */}
             {isCreatingOrder && (
                 <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[60] flex items-center justify-center p-4">
                     <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-6xl h-[90vh] flex overflow-hidden animate-scale-in shadow-2xl">
                         
-                        {/* Izquierda: Catálogo del Admin */}
+                        {/* Izquierda: Catálogo */}
                         <div className="w-2/3 border-r border-white/10 flex flex-col">
                             <div className="p-6 border-b border-white/10 bg-black/20 flex justify-between items-center">
                                 <div>
@@ -166,7 +148,7 @@ const ResellerOrders: React.FC<ResellerOrdersProps> = ({ currentUser, adminProdu
                             </div>
                         </div>
 
-                        {/* Derecha: Carrito de Reposición */}
+                        {/* Derecha: Carrito */}
                         <div className="w-1/3 flex flex-col bg-black/40">
                             <div className="p-6 border-b border-white/10 flex justify-between items-center">
                                 <h3 className="text-white font-bold">Tu Pedido</h3>
