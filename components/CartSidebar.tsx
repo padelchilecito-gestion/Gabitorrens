@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Trash2, ShoppingBag, Check, ArrowRight, CreditCard, Wallet, Banknote, ShieldCheck, Copy, CheckCircle2, MapPin, Phone, FileText } from 'lucide-react';
+import { X, Trash2, ShoppingBag, Check, ArrowRight, CreditCard, Wallet, Banknote, ShieldCheck, Copy, CheckCircle2, MapPin, Phone, FileText, User as UserIcon } from 'lucide-react';
 import { CartItem, Brand, ContactInfo, User, PaymentConfig } from '../types';
 
 interface CartSidebarProps {
@@ -12,11 +12,11 @@ interface CartSidebarProps {
   contactInfo: ContactInfo;
   paymentConfig: PaymentConfig;
   currentUser: User | null;
-  onLogin: () => Promise<void>;
+  onLoginRequest: () => void; // Cambiado: Ahora solo solicita ir al login
 }
 
 type CheckoutStep = 'cart' | 'login' | 'payment';
-type PaymentType = 'full' | 'deposit'; // 100% or 50%
+type PaymentType = 'full' | 'deposit'; 
 type PaymentMethod = 'transfer' | 'card' | 'cash';
 
 const CartSidebar: React.FC<CartSidebarProps> = ({ 
@@ -29,10 +29,9 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   contactInfo,
   paymentConfig,
   currentUser,
-  onLogin
+  onLoginRequest
 }) => {
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('cart');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [paymentType, setPaymentType] = useState<PaymentType>('full');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [copiedAlias, setCopiedAlias] = useState(false);
@@ -56,14 +55,12 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   const accentTextBtn = isSports ? 'text-black' : 'text-white';
   const borderCol = isDark ? 'border-white/10' : 'border-gray-100';
 
-  // Calculate total considering potential discounts
   const total = cart.reduce((acc, item) => {
       const discount = item.discount || 0;
       const finalPrice = item.price - (item.price * (discount / 100));
       return acc + (finalPrice * item.quantity);
   }, 0);
 
-  // Calculate final amounts based on selection
   const payNowAmount = paymentType === 'full' ? total : total * 0.5;
   const payLaterAmount = total - payNowAmount;
 
@@ -75,13 +72,6 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
       }
   };
 
-  const performLogin = async () => {
-      setIsLoggingIn(true);
-      await onLogin();
-      setIsLoggingIn(false);
-      setCheckoutStep('payment');
-  };
-
   const handleCopyAlias = () => {
       if (paymentConfig.transfer.alias) {
           navigator.clipboard.writeText(paymentConfig.transfer.alias);
@@ -91,32 +81,27 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   };
 
   const handleFinalWhatsApp = () => {
-    // 1. Validaciones
     const cleanStorePhone = contactInfo.phone.replace(/[^\d]/g, '');
 
     if (!cleanStorePhone) {
         alert("El número de la tienda no está configurado correctamente.");
         return;
     }
-
     if (!paymentMethod) {
         alert("Por favor selecciona un método de pago.");
         return;
     }
-
     if (!customerAddress.trim()) {
         alert("Por favor ingresa la dirección de entrega.");
         return;
     }
-
     if (!customerPhone.trim()) {
         alert("Por favor ingresa un teléfono de contacto.");
         return;
     }
 
-    // 2. Construir el mensaje detallado
     let message = `*NUEVO PEDIDO WEB* 🛒\n`;
-    message += `Cliente: *${currentUser?.name}*\n`;
+    message += `Cliente: *${currentUser?.name}* (${currentUser?.email})\n`;
     message += `Marca: *${activeBrand.toUpperCase()}*\n\n`;
     
     message += `*DETALLE DEL PEDIDO:*\n`;
@@ -160,7 +145,6 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
         message += `Saldo pendiente contra entrega: $${payLaterAmount.toLocaleString()}\n`;
     }
 
-    // 3. Codificar y Enviar
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/${cleanStorePhone}?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
@@ -173,7 +157,6 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
 
   return (
     <>
-      {/* Overlay */}
       <div 
         className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -181,12 +164,10 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
         onClick={resetFlow}
       />
 
-      {/* Sidebar */}
       <div className={`fixed top-0 right-0 h-full w-full sm:w-[480px] z-50 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${
         isOpen ? 'translate-x-0' : 'translate-x-full'
       } ${bgMain}`}>
         
-        {/* Header (Shared) */}
         <div className={`px-6 py-5 border-b flex items-center justify-between ${borderCol}`}>
             <div className="flex items-center gap-3">
               <ShoppingBag className={`w-5 h-5 ${isDark ? 'text-white' : isBio ? 'text-blue-900' : 'text-emerald-800'}`} />
@@ -203,7 +184,6 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
             </button>
         </div>
 
-        {/* --- STEP 1: CART VIEW --- */}
         {checkoutStep === 'cart' && (
             <>
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -218,9 +198,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                         </div>
                     ) : (
                         cart.map((item) => {
-                            const hasDiscount = item.discount && item.discount > 0;
                             const finalPrice = item.price - (item.price * ((item.discount || 0) / 100));
-
                             return (
                                 <div key={item.id} className="flex gap-4 group">
                                     <div className={`w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 border ${
@@ -233,56 +211,31 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                                             <div className="flex justify-between items-start">
                                                 <h3 className={`font-bold line-clamp-1 ${textMain}`}>{item.name}</h3>
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                                                    item.brand === 'informa' 
-                                                    ? 'bg-[#ccff00] text-black' 
-                                                    : item.brand === 'iqual'
-                                                        ? 'bg-indigo-600 text-white'
-                                                        : item.brand === 'biofarma'
-                                                            ? 'bg-blue-600 text-white'
-                                                            : 'bg-emerald-100 text-emerald-800'
-                                                }`}>
-                                                    {item.brand}
-                                                </span>
+                                                    item.brand === 'informa' ? 'bg-[#ccff00] text-black' : 
+                                                    item.brand === 'iqual' ? 'bg-indigo-600 text-white' : 
+                                                    item.brand === 'biofarma' ? 'bg-blue-600 text-white' : 'bg-emerald-100 text-emerald-800'
+                                                }`}>{item.brand}</span>
                                             </div>
                                             <p className="text-xs text-gray-500 mt-1">{item.category}</p>
                                         </div>
                                         
                                         <div className="flex items-center justify-between mt-2">
                                             <div className={`flex items-center border rounded-lg ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                                                <button 
-                                                    onClick={() => onUpdateQuantity(item.id, -1)}
-                                                    className={`w-8 h-8 flex items-center justify-center transition-colors ${isDark ? 'text-gray-400 hover:bg-white/10' : 'text-gray-600 hover:bg-gray-50'}`}
-                                                >-</button>
+                                                <button onClick={() => onUpdateQuantity(item.id, -1)} className={`w-8 h-8 flex items-center justify-center transition-colors ${isDark ? 'text-gray-400 hover:bg-white/10' : 'text-gray-600 hover:bg-gray-50'}`}>-</button>
                                                 <span className={`px-2 text-sm font-medium w-8 text-center ${textMain}`}>{item.quantity}</span>
-                                                <button 
-                                                    onClick={() => onUpdateQuantity(item.id, 1)}
-                                                    className={`w-8 h-8 flex items-center justify-center transition-colors ${isDark ? 'text-gray-400 hover:bg-white/10' : 'text-gray-600 hover:bg-gray-50'}`}
-                                                >+</button>
+                                                <button onClick={() => onUpdateQuantity(item.id, 1)} className={`w-8 h-8 flex items-center justify-center transition-colors ${isDark ? 'text-gray-400 hover:bg-white/10' : 'text-gray-600 hover:bg-gray-50'}`}>+</button>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <div className="text-right">
-                                                    {hasDiscount && (
+                                                    {item.discount && item.discount > 0 && (
                                                         <div className="flex items-center justify-end gap-1">
-                                                            <span className="text-xs text-gray-500 line-through">
-                                                                ${(item.price * item.quantity).toLocaleString()}
-                                                            </span>
-                                                            <span className="text-[10px] bg-red-500/10 text-red-500 px-1 rounded font-bold">
-                                                                -{item.discount}%
-                                                            </span>
+                                                            <span className="text-xs text-gray-500 line-through">${(item.price * item.quantity).toLocaleString()}</span>
+                                                            <span className="text-[10px] bg-red-500/10 text-red-500 px-1 rounded font-bold">-{item.discount}%</span>
                                                         </div>
                                                     )}
-                                                    <span className={`font-bold ${
-                                                        hasDiscount ? 'text-red-500' : textMain
-                                                    }`}>
-                                                        ${(finalPrice * item.quantity).toLocaleString()}
-                                                    </span>
+                                                    <span className={`font-bold ${item.discount ? 'text-red-500' : textMain}`}>${(finalPrice * item.quantity).toLocaleString()}</span>
                                                 </div>
-                                                <button 
-                                                    onClick={() => onRemoveItem(item.id)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                <button onClick={() => onRemoveItem(item.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"><Trash2 className="w-4 h-4" /></button>
                                             </div>
                                         </div>
                                     </div>
@@ -307,7 +260,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
             </>
         )}
 
-        {/* --- STEP 2: LOGIN OVERLAY --- */}
+        {/* --- STEP 2: LOGIN REQUIRED --- */}
         {checkoutStep === 'login' && (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
                  <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${
@@ -316,26 +269,17 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                      <ShieldCheck className={`w-10 h-10 ${isSports ? 'text-[#ccff00]' : isIqual ? 'text-indigo-400' : isBio ? 'text-blue-600' : 'text-emerald-600'}`} />
                  </div>
                  <h3 className={`text-2xl font-bold mb-2 ${textMain}`}>
-                     Identifícate
+                     Inicia Sesión
                  </h3>
                  <p className={`mb-8 max-w-xs ${textMuted}`}>
-                     Para garantizar la seguridad de tu pedido, necesitamos que inicies sesión.
+                     Para finalizar tu compra de forma segura, necesitas ingresar a tu cuenta o crear una rápida si eres nuevo.
                  </p>
 
                  <button 
-                    onClick={performLogin}
-                    disabled={isLoggingIn}
-                    className={`w-full max-w-sm py-3 px-4 rounded-xl flex items-center justify-center gap-3 font-medium transition-all transform hover:scale-105 ${
-                        isDark ? 'bg-white text-black hover:bg-gray-100' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm'
-                    }`}
+                    onClick={onLoginRequest}
+                    className={`w-full max-w-sm py-3 px-4 rounded-xl flex items-center justify-center gap-3 font-bold transition-all transform hover:scale-105 shadow-lg ${accentBg} ${accentTextBtn}`}
                  >
-                     {isLoggingIn ? (
-                         <span className="animate-pulse">Conectando...</span>
-                     ) : (
-                         <>
-                            Iniciar sesión con Google
-                         </>
-                     )}
+                     <UserIcon className="w-5 h-5" /> INGRESAR / REGISTRARSE
                  </button>
                  
                  <button 
@@ -350,9 +294,9 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
         {/* --- STEP 3: PAYMENT & DELIVERY --- */}
         {checkoutStep === 'payment' && (
             <div className="flex-1 flex flex-col h-full animate-fade-in overflow-y-auto">
+                 {/* ... (El código de pago sigue igual, solo renderizado si hay currentUser) ... */}
                  <div className="p-6 space-y-8">
                      
-                     {/* User Info */}
                      <div className={`p-4 rounded-xl flex items-center gap-3 ${isDark ? 'bg-white/5' : isBio ? 'bg-blue-50' : 'bg-emerald-50'}`}>
                          <img src={currentUser?.avatar} className="w-10 h-10 rounded-full" alt="" />
                          <div>
@@ -361,7 +305,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                          </div>
                      </div>
 
-                     {/* Delivery Data (NUEVO SECTOR) */}
+                     {/* Delivery Data */}
                      <div>
                         <h3 className={`font-bold mb-3 ${textMain}`}>1. Datos de Entrega</h3>
                         <div className="space-y-3">
@@ -407,171 +351,60 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                         </div>
                      </div>
 
-                     {/* Payment Percentage */}
+                     {/* Payment Options (Percentage & Method) - Same as before */}
                      <div>
                          <h3 className={`font-bold mb-3 ${textMain}`}>2. Modalidad de Pago</h3>
                          <div className="grid grid-cols-2 gap-3">
-                             <button 
-                                onClick={() => setPaymentType('full')}
-                                className={`p-4 rounded-xl border-2 transition-all text-left relative ${
-                                    paymentType === 'full' 
-                                    ? (isSports ? 'border-[#ccff00] bg-[#ccff00]/10' : isIqual ? 'border-indigo-500 bg-indigo-500/10' : isBio ? 'border-blue-600 bg-blue-50' : 'border-emerald-600 bg-emerald-50')
-                                    : (isDark ? 'border-white/10 bg-black/40' : 'border-gray-200 bg-white')
-                                }`}
-                             >
-                                 {paymentType === 'full' && (
-                                     <div className={`absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center ${
-                                         isSports ? 'bg-[#ccff00] text-black' : isIqual ? 'bg-indigo-500 text-white' : isBio ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'
-                                     }`}><Check className="w-3 h-3" /></div>
-                                 )}
+                             <button onClick={() => setPaymentType('full')} className={`p-4 rounded-xl border-2 transition-all text-left relative ${paymentType === 'full' ? (isSports ? 'border-[#ccff00] bg-[#ccff00]/10' : isIqual ? 'border-indigo-500 bg-indigo-500/10' : isBio ? 'border-blue-600 bg-blue-50' : 'border-emerald-600 bg-emerald-50') : (isDark ? 'border-white/10 bg-black/40' : 'border-gray-200 bg-white')}`}>
+                                 {paymentType === 'full' && <div className={`absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center ${isSports ? 'bg-[#ccff00] text-black' : isIqual ? 'bg-indigo-500 text-white' : isBio ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}><Check className="w-3 h-3" /></div>}
                                  <span className={`block text-xs font-bold uppercase mb-1 ${textMuted}`}>Recomendado</span>
                                  <span className={`block font-bold text-lg mb-1 ${textMain}`}>100%</span>
-                                 <span className={`text-xs ${textMuted}`}>Pago completo</span>
                              </button>
 
-                             <button 
-                                onClick={() => setPaymentType('deposit')}
-                                className={`p-4 rounded-xl border-2 transition-all text-left relative ${
-                                    paymentType === 'deposit' 
-                                    ? (isSports ? 'border-[#ccff00] bg-[#ccff00]/10' : isIqual ? 'border-indigo-500 bg-indigo-500/10' : isBio ? 'border-blue-600 bg-blue-50' : 'border-emerald-600 bg-emerald-50')
-                                    : (isDark ? 'border-white/10 bg-black/40' : 'border-gray-200 bg-white')
-                                }`}
-                             >
-                                 {paymentType === 'deposit' && (
-                                     <div className={`absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center ${
-                                         isSports ? 'bg-[#ccff00] text-black' : isIqual ? 'bg-indigo-500 text-white' : isBio ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'
-                                     }`}><Check className="w-3 h-3" /></div>
-                                 )}
+                             <button onClick={() => setPaymentType('deposit')} className={`p-4 rounded-xl border-2 transition-all text-left relative ${paymentType === 'deposit' ? (isSports ? 'border-[#ccff00] bg-[#ccff00]/10' : isIqual ? 'border-indigo-500 bg-indigo-500/10' : isBio ? 'border-blue-600 bg-blue-50' : 'border-emerald-600 bg-emerald-50') : (isDark ? 'border-white/10 bg-black/40' : 'border-gray-200 bg-white')}`}>
+                                 {paymentType === 'deposit' && <div className={`absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center ${isSports ? 'bg-[#ccff00] text-black' : isIqual ? 'bg-indigo-500 text-white' : isBio ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}><Check className="w-3 h-3" /></div>}
                                  <span className={`block text-xs font-bold uppercase mb-1 ${textMuted}`}>Seña</span>
                                  <span className={`block font-bold text-lg mb-1 ${textMain}`}>50%</span>
-                                 <span className={`text-xs ${textMuted}`}>El resto al recibir</span>
                              </button>
                          </div>
                      </div>
 
-                     {/* Payment Method */}
                      <div>
                         <h3 className={`font-bold mb-3 ${textMain}`}>3. Medio de Pago</h3>
                         <div className="space-y-2">
                             {paymentConfig.transfer.enabled && (
                                 <div className="space-y-2">
-                                    <button
-                                        onClick={() => setPaymentMethod('transfer')}
-                                        className={`w-full p-3 rounded-lg flex items-center gap-3 transition-colors ${
-                                            paymentMethod === 'transfer' 
-                                            ? (isSports ? 'bg-[#ccff00] text-black font-bold' : isIqual ? 'bg-indigo-600 text-white font-bold' : isBio ? 'bg-blue-900 text-white font-bold' : 'bg-emerald-800 text-white font-bold')
-                                            : (isDark ? 'bg-white/10 text-gray-300 hover:bg-white/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')
-                                        }`}
-                                    >
-                                        <Banknote className="w-5 h-5" />
-                                        Transferencia Bancaria
+                                    <button onClick={() => setPaymentMethod('transfer')} className={`w-full p-3 rounded-lg flex items-center gap-3 transition-colors ${paymentMethod === 'transfer' ? (isSports ? 'bg-[#ccff00] text-black font-bold' : isIqual ? 'bg-indigo-600 text-white font-bold' : isBio ? 'bg-blue-900 text-white font-bold' : 'bg-emerald-800 text-white font-bold') : (isDark ? 'bg-white/10 text-gray-300 hover:bg-white/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')}`}>
+                                        <Banknote className="w-5 h-5" /> Transferencia Bancaria
                                     </button>
-                                    
                                     {paymentMethod === 'transfer' && (
-                                        <div className={`p-4 rounded-lg border text-sm space-y-3 animate-fade-in ${
-                                            isDark ? 'bg-black/40 border-white/10' : 'bg-blue-50 border-blue-100'
-                                        }`}>
-                                            <div className="flex justify-between items-center">
-                                                <span className={textMuted}>Banco/Billetera:</span>
-                                                <span className={`font-bold ${textMain}`}>{paymentConfig.transfer.bankName}</span>
-                                            </div>
+                                        <div className={`p-4 rounded-lg border text-sm space-y-3 animate-fade-in ${isDark ? 'bg-black/40 border-white/10' : 'bg-blue-50 border-blue-100'}`}>
+                                            <div className="flex justify-between items-center"><span className={textMuted}>Banco:</span><span className={`font-bold ${textMain}`}>{paymentConfig.transfer.bankName}</span></div>
                                             <div className="p-3 bg-black/10 rounded flex items-center justify-between border border-black/5">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] uppercase text-gray-500 font-bold">Alias</span>
-                                                    <span className={`font-mono text-lg font-bold ${accentColor}`}>
-                                                        {paymentConfig.transfer.alias}
-                                                    </span>
-                                                </div>
-                                                <button 
-                                                    onClick={handleCopyAlias}
-                                                    className={`p-2 rounded-lg transition-colors ${
-                                                        isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-gray-50 text-emerald-800 shadow-sm'
-                                                    }`}
-                                                >
-                                                    {copiedAlias ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
-                                                </button>
+                                                <div className="flex flex-col"><span className="text-[10px] uppercase text-gray-500 font-bold">Alias</span><span className={`font-mono text-lg font-bold ${accentColor}`}>{paymentConfig.transfer.alias}</span></div>
+                                                <button onClick={handleCopyAlias} className={`p-2 rounded-lg transition-colors ${isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-gray-50 text-emerald-800 shadow-sm'}`}>{copiedAlias ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}</button>
                                             </div>
-                                            <p className="text-xs text-center text-gray-500 italic">
-                                                ⚠️ Realiza el pago ahora. Se solicitará el comprobante al finalizar.
-                                            </p>
                                         </div>
                                     )}
                                 </div>
                             )}
-
-                            {paymentConfig.card.enabled && (
-                                <button
-                                    onClick={() => setPaymentMethod('card')}
-                                    className={`w-full p-3 rounded-lg flex items-center gap-3 transition-colors ${
-                                        paymentMethod === 'card' 
-                                        ? (isSports ? 'bg-[#ccff00] text-black font-bold' : isIqual ? 'bg-indigo-600 text-white font-bold' : isBio ? 'bg-blue-900 text-white font-bold' : 'bg-emerald-800 text-white font-bold')
-                                        : (isDark ? 'bg-white/10 text-gray-300 hover:bg-white/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')
-                                    }`}
-                                >
-                                    <CreditCard className="w-5 h-5" />
-                                    Tarjeta Crédito / Débito
-                                </button>
-                            )}
-
-                            {paymentConfig.cash.enabled && (
-                                <button
-                                    onClick={() => setPaymentMethod('cash')}
-                                    className={`w-full p-3 rounded-lg flex items-center gap-3 transition-colors ${
-                                        paymentMethod === 'cash' 
-                                        ? (isSports ? 'bg-[#ccff00] text-black font-bold' : isIqual ? 'bg-indigo-600 text-white font-bold' : isBio ? 'bg-blue-900 text-white font-bold' : 'bg-emerald-800 text-white font-bold')
-                                        : (isDark ? 'bg-white/10 text-gray-300 hover:bg-white/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')
-                                    }`}
-                                >
-                                    <Wallet className="w-5 h-5" />
-                                    Efectivo
-                                </button>
-                            )}
+                            {paymentConfig.card.enabled && <button onClick={() => setPaymentMethod('card')} className={`w-full p-3 rounded-lg flex items-center gap-3 transition-colors ${paymentMethod === 'card' ? (isSports ? 'bg-[#ccff00] text-black font-bold' : isIqual ? 'bg-indigo-600 text-white font-bold' : isBio ? 'bg-blue-900 text-white font-bold' : 'bg-emerald-800 text-white font-bold') : (isDark ? 'bg-white/10 text-gray-300 hover:bg-white/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')}`}><CreditCard className="w-5 h-5" /> Tarjeta Crédito / Débito</button>}
+                            {paymentConfig.cash.enabled && <button onClick={() => setPaymentMethod('cash')} className={`w-full p-3 rounded-lg flex items-center gap-3 transition-colors ${paymentMethod === 'cash' ? (isSports ? 'bg-[#ccff00] text-black font-bold' : isIqual ? 'bg-indigo-600 text-white font-bold' : isBio ? 'bg-blue-900 text-white font-bold' : 'bg-emerald-800 text-white font-bold') : (isDark ? 'bg-white/10 text-gray-300 hover:bg-white/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')}`}><Wallet className="w-5 h-5" /> Efectivo</button>}
                         </div>
                      </div>
 
-                     {/* Summary */}
-                     <div className={`p-4 rounded-xl border space-y-2 ${
-                         isDark ? 'border-white/10 bg-black/20' : 'border-gray-200 bg-gray-50'
-                     }`}>
-                         <div className="flex justify-between text-sm">
-                             <span className={textMuted}>Total Carrito</span>
-                             <span className={textMain}>${total.toLocaleString()}</span>
-                         </div>
-                         {paymentType === 'deposit' && (
-                             <div className="flex justify-between text-sm">
-                                <span className={textMuted}>Pendiente (Contra entrega)</span>
-                                <span className={textMain}>${payLaterAmount.toLocaleString()}</span>
-                             </div>
-                         )}
-                         <div className={`border-t pt-2 mt-2 flex justify-between font-bold text-lg ${
-                             isDark ? 'border-white/10 ' + accentColor : isBio ? 'border-gray-200 text-blue-800' : 'border-gray-200 text-emerald-700'
-                         }`}>
-                             <span>A Pagar Ahora</span>
-                             <span>${payNowAmount.toLocaleString()}</span>
-                         </div>
+                     <div className={`p-4 rounded-xl border space-y-2 ${isDark ? 'border-white/10 bg-black/20' : 'border-gray-200 bg-gray-50'}`}>
+                         <div className="flex justify-between text-sm"><span className={textMuted}>Total Carrito</span><span className={textMain}>${total.toLocaleString()}</span></div>
+                         {paymentType === 'deposit' && <div className="flex justify-between text-sm"><span className={textMuted}>Pendiente (Contra entrega)</span><span className={textMain}>${payLaterAmount.toLocaleString()}</span></div>}
+                         <div className={`border-t pt-2 mt-2 flex justify-between font-bold text-lg ${isDark ? 'border-white/10 ' + accentColor : isBio ? 'border-gray-200 text-blue-800' : 'border-gray-200 text-emerald-700'}`}><span>A Pagar Ahora</span><span>${payNowAmount.toLocaleString()}</span></div>
                      </div>
                  </div>
 
-                 <div className={`p-6 mt-auto border-t ${
-                     isDark ? 'border-white/10 bg-black/40' : 'border-gray-100 bg-white'
-                 }`}>
-                     <button 
-                        onClick={handleFinalWhatsApp}
-                        disabled={!paymentMethod || !customerAddress.trim() || !customerPhone.trim()}
-                        className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 text-lg shadow-xl hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed ${accentBg} ${accentTextBtn}`}
-                     >
-                         {paymentMethod === 'transfer' 
-                            ? "CONFIRMAR Y ENVIAR COMPROBANTE" 
-                            : "CONFIRMAR PEDIDO"
-                         } 
-                         <ArrowRight className="w-5 h-5" />
+                 <div className={`p-6 mt-auto border-t ${isDark ? 'border-white/10 bg-black/40' : 'border-gray-100 bg-white'}`}>
+                     <button onClick={handleFinalWhatsApp} disabled={!paymentMethod || !customerAddress.trim() || !customerPhone.trim()} className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 text-lg shadow-xl hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed ${accentBg} ${accentTextBtn}`}>
+                         {paymentMethod === 'transfer' ? "CONFIRMAR Y ENVIAR COMPROBANTE" : "CONFIRMAR PEDIDO"} <ArrowRight className="w-5 h-5" />
                      </button>
-                     <button 
-                        onClick={() => setCheckoutStep('cart')}
-                        className={`w-full mt-3 text-sm hover:underline ${textMuted}`}
-                     >
-                         Volver
-                     </button>
+                     <button onClick={() => setCheckoutStep('cart')} className={`w-full mt-3 text-sm hover:underline ${textMuted}`}>Volver</button>
                  </div>
             </div>
         )}

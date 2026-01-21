@@ -43,7 +43,8 @@ function App() {
 
   // --- EFECTO: DETECTAR NUEVOS MENSAJES / ACTUALIZACIONES ---
   useEffect(() => {
-      if (loggedReseller) {
+      // Solo ejecutamos esto si hay un revendedor logueado y estamos en su vista
+      if (loggedReseller && currentView === 'reseller') {
           // Buscar la versión más reciente del usuario en la base de datos global
           const updatedUser = resellers.find(r => r.id === loggedReseller.id);
           
@@ -53,7 +54,7 @@ function App() {
               
               // Si el último mensaje es del admin, no ha sido leído y NO estamos mostrando ya una notificación
               if (lastMsg && lastMsg.sender === 'admin' && !lastMsg.read && !showToast) {
-                  // Personalizamos el mensaje según el contenido (si es pedido o chat normal)
+                  // Personalizamos el mensaje según el contenido
                   const isOrderUpdate = lastMsg.content.includes('pedido');
                   setToastMessage(isOrderUpdate ? "📦 Actualización de Pedido" : "💬 Nuevo mensaje del Administrador");
                   
@@ -64,7 +65,7 @@ function App() {
               }
           }
       }
-  }, [resellers, loggedReseller, showToast]);
+  }, [resellers, loggedReseller, currentView, showToast]);
 
   // --- LÓGICA DE NEGOCIO ---
 
@@ -91,12 +92,16 @@ function App() {
       });
   };
 
-  const handleUnifiedLogin = (type: 'admin' | 'reseller', data?: Reseller) => {
+  const handleUnifiedLogin = (type: 'admin' | 'reseller' | 'client', data?: any) => {
       if (type === 'admin') {
           setCurrentView('admin');
       } else if (type === 'reseller' && data) {
           setLoggedReseller(data);
           setCurrentView('reseller');
+      } else if (type === 'client' && data) {
+          setCurrentUser(data);
+          setCurrentView('shop');
+          setIsCartOpen(true); // Reabrir carrito para finalizar compra si es necesario
       }
   };
 
@@ -236,10 +241,10 @@ function App() {
                     setCurrentView('shop');
                 }}
                 initialUser={loggedReseller}
-                products={products}
+                products={products} // Se pasa el catálogo global para que puedan hacer pedidos
             />
             
-            {/* NOTIFICACIÓN TOAST FLOTANTE (Solo en panel reseller) */}
+            {/* NOTIFICACIÓN TOAST FLOTANTE (Solo aquí) */}
             {showToast && (
                 <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-[#ccff00] text-black px-6 py-3 rounded-full shadow-2xl z-[100] animate-slide-up font-bold flex items-center gap-2 border border-black/10">
                     <Bell className="w-4 h-4" /> {toastMessage}
@@ -249,9 +254,11 @@ function App() {
     );
   }
 
+  // --- VISTA PÚBLICA (SHOP) ---
   return (
     <div className={`min-h-screen relative transition-colors duration-700 ${getBgClass()}`}>
       
+      {/* Background Ambience */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
          {isSports && (
              <>
@@ -312,6 +319,7 @@ function App() {
                 </div>
             )}
 
+            {/* PRODUCT GRID */}
             {filteredProducts.length > 0 && (
                 <div className="mb-16">
                     {activeBrand === 'biofarma' && <h3 className="text-2xl font-bold text-blue-900 mb-6 border-l-4 border-blue-500 pl-4">Destacados y Kits</h3>}
@@ -329,6 +337,7 @@ function App() {
                 </div>
             )}
 
+            {/* BIOFARMA VADEMECUM */}
             {activeBrand === 'biofarma' && (
                 <div className="mb-16 animate-slide-up">
                     <BioFarmaCatalog 
@@ -338,6 +347,7 @@ function App() {
                 </div>
             )}
 
+            {/* Empty State */}
             {filteredProducts.length === 0 && activeBrand !== 'biofarma' && (
                 <div className="text-center py-20 animate-fade-in bg-white/5 rounded-2xl border border-white/5">
                     <SlidersHorizontal className={`w-12 h-12 mx-auto mb-4 ${isSports || isIqual ? 'text-gray-600' : 'text-gray-300'}`} />
@@ -437,7 +447,7 @@ function App() {
             contactInfo={contactInfo}
             paymentConfig={paymentConfig}
             currentUser={currentUser}
-            onLogin={handleGoogleLogin}
+            onLoginRequest={() => { setIsCartOpen(false); setCurrentView('login'); }}
         />
 
         {selectedProduct && (
