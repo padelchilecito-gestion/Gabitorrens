@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -13,60 +12,46 @@ import Login from './components/Login';
 import SocialProof from './components/SocialProof';
 import { initialProducts, initialContactInfo, initialBanners, initialResellers, initialAdminClients, initialSiteContent, initialPaymentConfig, initialSocialReviews } from './data';
 import { Product, CartItem, Category, ContactInfo, Banner, Reseller, Client, SiteContent, User, PaymentConfig, SocialReview, Brand, PeptoneFormula } from './types';
-import { Settings, Phone, Mail, MapPin, Instagram, Users, SlidersHorizontal, Lock, Sparkles } from 'lucide-react';
+import { Sparkles, SlidersHorizontal, Lock, MapPin, Phone, Mail, Instagram } from 'lucide-react';
+
+// Importamos el hook que acabamos de crear
+import { useLocalStorage } from './hooks/useLocalStorage';
 
 function App() {
-  // Global State lifted from data.ts
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [contactInfo, setContactInfo] = useState<ContactInfo>(initialContactInfo);
-  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(initialPaymentConfig);
-  const [banners, setBanners] = useState<Banner[]>(initialBanners);
-  const [resellers, setResellers] = useState<Reseller[]>(initialResellers);
-  const [adminClients, setAdminClients] = useState<Client[]>(initialAdminClients);
-  const [siteContent, setSiteContent] = useState<SiteContent>(initialSiteContent);
-  const [socialReviews, setSocialReviews] = useState<SocialReview[]>(initialSocialReviews);
+  // --- ESTADO PERSISTENTE (Se guarda en el navegador) ---
+  // Cuando conectemos Firebase, solo cambiaremos esta parte.
+  const [products, setProducts] = useLocalStorage<Product[]>('products', initialProducts);
+  const [contactInfo, setContactInfo] = useLocalStorage<ContactInfo>('contactInfo', initialContactInfo);
+  const [paymentConfig, setPaymentConfig] = useLocalStorage<PaymentConfig>('paymentConfig', initialPaymentConfig);
+  const [banners, setBanners] = useLocalStorage<Banner[]>('banners', initialBanners);
+  const [resellers, setResellers] = useLocalStorage<Reseller[]>('resellers', initialResellers);
+  const [adminClients, setAdminClients] = useLocalStorage<Client[]>('adminClients', initialAdminClients);
+  const [siteContent, setSiteContent] = useLocalStorage<SiteContent>('siteContent', initialSiteContent);
+  const [socialReviews, setSocialReviews] = useLocalStorage<SocialReview[]>('socialReviews', initialSocialReviews);
   
-  // UI State
+  // --- ESTADO DE INTERFAZ (No necesita guardarse) ---
   const [currentView, setCurrentView] = useState<'shop' | 'admin' | 'reseller' | 'login'>('shop');
   const [activeBrand, setActiveBrand] = useState<Brand>('informa');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  
-  // New UI Features State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
-
-  // Auth State (For Admin/Reseller Logic)
   const [loggedReseller, setLoggedReseller] = useState<Reseller | null>(null);
-  
-  // Filtering State (Shop)
   const [selectedCategory, setSelectedCategory] = useState<Category>('Todos');
-
-  // --- Customer Auth Simulation ---
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // --- HOOKS: MUST BE CALLED BEFORE ANY RETURN STATEMENT ---
+  // --- LÓGICA DE NEGOCIO ---
 
-  // Simple Filtering Logic (Brand Context + Category)
   const filteredProducts = useMemo(() => {
       return products.filter(p => {
-          // 1. Brand Filter (Strict by Tab)
           const brandMatch = p.brand === activeBrand;
-          
-          // 2. Category Filter
           const categoryMatch = selectedCategory === 'Todos' || p.category === selectedCategory;
-          
-          // 3. Active Status
           const isActive = p.active === true;
-
           return brandMatch && categoryMatch && isActive;
       });
   }, [products, activeBrand, selectedCategory]);
 
-  // --- HANDLERS & HELPERS ---
-
   const handleGoogleLogin = () => {
-      // Simulate Google Login Delay
       return new Promise<void>((resolve) => {
           setTimeout(() => {
               setCurrentUser({
@@ -89,38 +74,27 @@ function App() {
       }
   };
 
-  // Get categories relevant to the ACTIVE BRAND
   const categories: Category[] = ['Todos', ...Array.from(new Set(
     products
         .filter(p => p.brand === activeBrand)
         .map(p => p.category)
   ))].sort() as Category[];
 
-  // Cart Handlers
+  // --- MANEJO DEL CARRITO ---
+
   const addToCart = (product: Product, quantity: number = 1, discount: number = 0) => {
-    // Note: BioFarma Peptones have virtual stock, so standard stock check passes
     if (product.stock < quantity) return;
     
     setCart(prev => {
-      // Check if product exists in cart (Matching ID)
       const existing = prev.find(item => item.id === product.id);
       
-      // Special logic for Peptones with different presentations
-      // If we implemented presentation in ID, this standard logic works fine.
-      // Since our BioFarmaCatalog generates unique IDs like "PEP-APG", it's fine.
-      // However, if we wanted to differentiate "Ampollas" vs "Comprimidos" of same Code,
-      // we might need to append presentation to ID or check name. 
-      // For simplicity in this iteration, BioFarmaCatalog generates unique names.
-      
       if (existing) {
-        // Check stock limit
         if (existing.quantity + quantity > product.stock) return prev;
         
         return prev.map(item => 
           item.id === product.id ? { 
               ...item, 
               quantity: item.quantity + quantity,
-              // Update discount if the new one is higher
               discount: Math.max(item.discount || 0, discount)
           } : item
         );
@@ -135,13 +109,12 @@ function App() {
   };
 
   const updateQuantity = (id: string, delta: number) => {
-    const product = products.find(p => p.id === id) || cart.find(i => i.id === id); // Fallback to cart for dynamically generated peptones
+    const product = products.find(p => p.id === id) || cart.find(i => i.id === id);
     if (!product) return;
 
     setCart(prev => prev.map(item => {
       if (item.id === id) {
         const newQty = item.quantity + delta;
-        // Validate against stock and min 0
         if (newQty > product.stock) return item;
         const finalQty = Math.max(0, newQty);
         return { ...item, quantity: finalQty };
@@ -151,7 +124,6 @@ function App() {
   };
 
   const handleSelectPeptone = (item: PeptoneFormula) => {
-      // Convert PeptoneFormula to temporary Product for Detail Modal
       const productPayload: Product = {
             id: `PEP-${item.code}`,
             name: `Linfar ${item.code} - ${item.name}`,
@@ -159,7 +131,7 @@ function App() {
             category: 'Peptonas',
             price: 28900,
             description: item.recommendations,
-            longDescription: item.description, // Use the full description here
+            longDescription: item.description,
             features: [item.ingredients, ...item.presentations],
             image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=400&auto=format&fit=crop',
             stock: 100,
@@ -193,9 +165,8 @@ function App() {
       }
   };
 
-  // --- VIEW RENDERING LOGIC ---
-  
-  // 1. Unified Login View
+  // --- RENDER ---
+
   if (currentView === 'login') {
       return (
           <Login 
@@ -206,7 +177,6 @@ function App() {
       );
   }
 
-  // 2. Admin Logic
   if (currentView === 'admin') {
       return (
         <AdminPanel 
@@ -231,7 +201,6 @@ function App() {
       );
   }
 
-  // 3. Reseller Logic
   if (currentView === 'reseller') {
     return (
         <ResellerPanel 
@@ -246,11 +215,10 @@ function App() {
     );
   }
 
-  // 4. Shop Logic (Default)
   return (
     <div className={`min-h-screen relative transition-colors duration-700 ${getBgClass()}`}>
       
-      {/* Background Ambience (Glass Effect Support) */}
+      {/* Background Ambience */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
          {isSports && (
              <>
@@ -296,7 +264,6 @@ function App() {
         {/* Main Content Area */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             
-            {/* Quick Category Pills (Hide if BioFarma because it has its own internal filter, or keep if we want hybrid) */}
             {activeBrand !== 'biofarma' && (
                 <div className="mb-8 overflow-x-auto pb-4">
                     <div className="flex flex-wrap gap-3 justify-center">
@@ -313,7 +280,7 @@ function App() {
                 </div>
             )}
 
-            {/* PRODUCT GRID (Featured / Low Quantity) - Now FIRST for BioFarma */}
+            {/* PRODUCT GRID */}
             {filteredProducts.length > 0 && (
                 <div className="mb-16">
                     {activeBrand === 'biofarma' && <h3 className="text-2xl font-bold text-blue-900 mb-6 border-l-4 border-blue-500 pl-4">Destacados y Kits</h3>}
@@ -331,7 +298,7 @@ function App() {
                 </div>
             )}
 
-            {/* Special Vademecum for BioFarma - Now SECOND */}
+            {/* BIOFARMA VADEMECUM */}
             {activeBrand === 'biofarma' && (
                 <div className="mb-16 animate-slide-up">
                     <BioFarmaCatalog 
@@ -359,7 +326,6 @@ function App() {
             )}
         </main>
 
-        {/* Floating Action Button for Quiz */}
         <button 
             onClick={() => setIsQuizOpen(true)}
             className={`fixed bottom-6 right-6 z-40 p-4 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.3)] animate-blob hover:scale-110 transition-transform ${
@@ -369,7 +335,6 @@ function App() {
             <Sparkles className="w-6 h-6" />
         </button>
 
-        {/* Social Proof / Reviews Section */}
         <SocialProof reviews={socialReviews} activeBrand={activeBrand} />
 
         {/* Footer */}
@@ -377,9 +342,7 @@ function App() {
             isSports ? 'bg-black/80 border-t border-white/5' : isIqual ? 'bg-slate-900/80 border-t border-white/5' : isBio ? 'bg-white border-t border-blue-100' : 'bg-stone-100/80 border-t border-stone-200'
         } backdrop-blur-lg pt-16 pb-8`}>
             <div className="max-w-7xl mx-auto px-4">
-                
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-                    {/* Brand Info */}
                     <div className="text-center md:text-left">
                         <h3 className={`text-xl font-bold mb-4 ${isSports || isIqual ? 'text-white' : isBio ? 'text-blue-900' : 'text-emerald-900'}`}>
                             {isSports ? 'IN FORMA' : isIqual ? 'IQUAL' : isBio ? 'BIOFARMA' : 'PHISIS'}
@@ -396,7 +359,6 @@ function App() {
                         </p>
                     </div>
 
-                    {/* Contact Info (Dynamic) */}
                     <div className="text-center md:text-left">
                         <h3 className={`text-lg font-bold mb-4 ${isSports ? 'text-[#ccff00]' : isIqual ? 'text-indigo-400' : isBio ? 'text-blue-700' : 'text-emerald-700'}`}>
                             Contacto
@@ -417,7 +379,6 @@ function App() {
                         </div>
                     </div>
 
-                    {/* Links */}
                     <div className="text-center md:text-right space-y-2">
                         <button 
                             onClick={() => setCurrentView('login')}
@@ -451,7 +412,6 @@ function App() {
             onLogin={handleGoogleLogin}
         />
 
-        {/* MODALS */}
         {selectedProduct && (
             <ProductDetail 
                 product={selectedProduct} 
